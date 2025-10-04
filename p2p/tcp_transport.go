@@ -6,6 +6,18 @@ import (
 	"sync"
 )
 
+type TCPPeer struct {
+	conn     net.Conn
+	outbound bool
+}
+
+func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
+	return &TCPPeer{
+		conn:     conn,
+		outbound: outbound,
+	}
+}
+
 type TCPTransport struct {
 	listenAddress string
 	listener      net.Listener
@@ -20,7 +32,7 @@ func NewTCPTransport(listenAddr string) *TCPTransport {
 	}
 }
 
-func (t *TCPTransport) ListenAndAccept () error {
+func (t *TCPTransport) ListenAndAccept() error {
 
 	var err error
 
@@ -30,7 +42,7 @@ func (t *TCPTransport) ListenAndAccept () error {
 	}
 
 	go t.startAcceptLoop()
-	return nil	
+	return nil
 }
 
 func (t *TCPTransport) startAcceptLoop() {
@@ -45,5 +57,7 @@ func (t *TCPTransport) startAcceptLoop() {
 }
 
 func (t *TCPTransport) handleConn(conn net.Conn) {
-	fmt.Printf("new incoming connection %+v\n", conn)
+	peer := NewTCPPeer(conn, true)
+
+	fmt.Printf("new incoming connection %+v\n", peer)
 }
