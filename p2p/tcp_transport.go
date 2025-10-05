@@ -3,18 +3,13 @@ package p2p
 import (
 	"fmt"
 	"net"
-	"sync"
 )
 
-// single peer in the network
-// conn - raw tcp conn
-// outbound - incoming or outgoing
 type TCPPeer struct {
 	conn     net.Conn
 	outbound bool
 }
 
-// constructor for TCPPeer
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		conn:     conn,
@@ -22,28 +17,34 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	}
 }
 
+func (p *TCPPeer) Close() error {
+	return p.conn.Close()
+}
+
 type TCPTransportOpts struct {
 	ListenAddr    string
 	HandshakeFunc HandshakeFunc
 	Decoder       Decoder
+	OnPeer        func(Peer) error
 }
 
-// transport layer
 type TCPTransport struct {
-	listener net.Listener // tcp listener
+	listener net.Listener
 	TCPTransportOpts
-	mu    sync.RWMutex
-	peers map[net.Addr]Peer
+	rpcch chan RPC
 }
 
-// constructor for TCPTransport
 func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
+		rpcch:            make(chan RPC),
 	}
 }
 
-// binds a tcp socket to given address
+func (t *TCPTransport) Consume() <-chan RPC {
+	return t.rpcch
+}
+
 func (t *TCPTransport) ListenAndAccept() error {
 
 	var err error
@@ -57,7 +58,6 @@ func (t *TCPTransport) ListenAndAccept() error {
 	return nil
 }
 
-// accepts new connections
 func (t *TCPTransport) startAcceptLoop() {
 	for {
 		conn, err := t.listener.Accept()
@@ -69,27 +69,36 @@ func (t *TCPTransport) startAcceptLoop() {
 	}
 }
 
-type Temp struct {
-}
-
 func (t *TCPTransport) handleConn(conn net.Conn) {
+	var err error
+	defer func() {
+		fmt.Printf("dropping peer connection: %s", err)
+		conn.Close()
+	}()
+
 	peer := NewTCPPeer(conn, true)
 
-	if err := t.HandshakeFunc(peer); err != nil {
-		fmt.Printf("TCP handshake erorr: %s\n", err)
-		conn.Close()
+	if err = t.HandshakeFunc(peer); err != nil {
 		return
 	}
 
-	msg := &Message{}
+	if t.OnPeer != nil {
+		if err = t.OnPeer(peer); err != nil {
+			return
+		}
+	}
+
+	rpc := RPC{}
 	for {
-		if err := t.Decoder.Decode(conn, msg); err != nil {
-			fmt.Printf("TCP error: %s\n", err)
-			continue
+		err = t.Decoder.Decode(conn, &rpc)
+
+		if err != nil {
+			return
 		}
 
-		msg.From = conn.RemoteAddr()
+		rpc.From = conn.RemoteAddr()
+		t.rpcch <- rpc
 
-		fmt.Printf("message: %v\n", msg)
+		//		fmt.Printf("message: %v\n", rpc)
 	}
 }
