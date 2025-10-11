@@ -1,35 +1,27 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/chrollo-lucifer-12/file-storage/p2p"
 )
 
-func onPeer(peer p2p.Peer) error {
-	//fmt.Errorf("failed the onpeer func")
-	peer.Close()
-	return nil
-}
-
 func main() {
-	tcpOpts := p2p.TCPTransportOpts{
+	tcpTransportOpts := p2p.TCPTransportOpts{
 		ListenAddr:    ":3000",
 		HandshakeFunc: p2p.NOPHandshakeFunc,
-		Decoder:       p2p.NOPDecoder{},
-		OnPeer:        onPeer,
+		Decoder:       p2p.GOBDecoder{},
 	}
-	tr := p2p.NewTCPTransport(tcpOpts)
+	tcpTransport := p2p.NewTCPTransport(tcpTransportOpts)
 
-	go func() {
-		for {
-			msg := <-tr.Consume()
-			fmt.Printf("%v\n", msg)
-		}
-	}()
+	fileServerOpts := FileServerOpts{
+		StorageRoot:       "3000_objects",
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         tcpTransport,
+	}
 
-	if err := tr.ListenAndAccept(); err != nil {
+	s := NewFileServer(fileServerOpts)
+	if err := s.Start(); err != nil {
 		log.Fatal(err)
 	}
 
