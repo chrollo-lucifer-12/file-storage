@@ -1,6 +1,10 @@
 package main
 
-import "github.com/chrollo-lucifer-12/file-storage/p2p"
+import (
+	"io"
+
+	"github.com/chrollo-lucifer-12/file-storage/p2p"
+)
 
 type FileServerOpts struct {
 	StorageRoot       string
@@ -32,4 +36,8 @@ func (s *FileServerOpts) Start() error {
 	}
 
 	return nil
+}
+
+func (s *FileServer) Store(key string, r io.Reader) error {
+	return s.store.Write(key, r)
 }
