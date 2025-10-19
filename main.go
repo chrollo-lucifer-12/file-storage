@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/chrollo-lucifer-12/file-storage/p2p"
 )
@@ -18,6 +19,7 @@ func main() {
 		StorageRoot:       "3000_objects",
 		PathTransformFunc: CASPathTransformFunc,
 		Transport:         tcpTransport,
+		BootstrapNodes:    []string{":4000"},
 	}
 
 	s := NewFileServer(fileServerOpts)
@@ -25,5 +27,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	select {}
+	go func() {
+		time.Sleep(time.Second * 3)
+		s.Quit()
+	}()
+
 }
