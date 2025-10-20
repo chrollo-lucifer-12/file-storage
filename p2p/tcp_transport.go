@@ -19,8 +19,17 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	}
 }
 
+func (p *TCPPeer) Send(b []byte) error {
+	_, err := p.conn.Write(b)
+	return err
+}
+
 func (p *TCPPeer) Close() error {
 	return p.conn.Close()
+}
+
+func (p *TCPPeer) RemoteAddr() net.Addr {
+	return p.conn.RemoteAddr()
 }
 
 type TCPTransportOpts struct {
@@ -85,6 +94,8 @@ func (t *TCPTransport) startAcceptLoop() {
 		if err != nil {
 			fmt.Printf("TCP accept error: %s\n", err)
 		}
+
+		fmt.Printf("new incoming connection %v\n", conn)
 
 		go t.handleConn(conn, false)
 	}
